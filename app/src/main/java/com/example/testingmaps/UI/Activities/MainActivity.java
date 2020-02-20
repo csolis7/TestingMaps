@@ -1,8 +1,7 @@
-package com.example.testingmaps;
+package com.example.testingmaps.UI.Activities;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -15,62 +14,45 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.location.LocationProvider;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.provider.Settings;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.example.testingmaps.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import org.osmdroid.api.IGeoPoint;
 import org.osmdroid.api.IMapController;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.tileprovider.MapTileProviderBasic;
-import org.osmdroid.tileprovider.tilesource.ITileSource;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
-import org.osmdroid.tileprovider.tilesource.XYTileSource;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.NetworkLocationIgnorer;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.ItemizedIconOverlay;
-import org.osmdroid.views.overlay.ItemizedOverlay;
-import org.osmdroid.views.overlay.ItemizedOverlayWithFocus;
 import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.MinimapOverlay;
-import org.osmdroid.views.overlay.Overlay;
 import org.osmdroid.views.overlay.OverlayItem;
 import org.osmdroid.views.overlay.Polygon;
 import org.osmdroid.views.overlay.Polyline;
 import org.osmdroid.views.overlay.ScaleBarOverlay;
-import org.osmdroid.views.overlay.TilesOverlay;
 import org.osmdroid.views.overlay.compass.CompassOverlay;
 import org.osmdroid.views.overlay.compass.InternalCompassOrientationProvider;
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
 import org.osmdroid.views.overlay.infowindow.BasicInfoWindow;
 import org.osmdroid.views.overlay.mylocation.DirectedLocationOverlay;
-import org.osmdroid.views.overlay.simplefastpoint.LabelledGeoPoint;
-import org.osmdroid.views.overlay.simplefastpoint.SimpleFastPointOverlay;
-import org.osmdroid.views.overlay.simplefastpoint.SimpleFastPointOverlayOptions;
-import org.osmdroid.views.overlay.simplefastpoint.SimplePointTheme;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+import io.realm.Realm;
+import io.realm.RealmResults;
 
 public class MainActivity extends Activity implements LocationListener, MapEventsReceiver {
     MapView map = null;
@@ -83,6 +65,9 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
     protected boolean mTrackingMode;
     boolean mIsRecordingTrack;
     FloatingActionButton mTrackingModeButton;
+    Realm realm;
+
+    com.example.testingmaps.Storage.Address address = new com.example.testingmaps.Storage.Address();
 
     float mAzimuthAngleSpeed = 0.0f;
 
@@ -100,7 +85,11 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         //inflate and create the map
         setContentView(R.layout.activity_main);
 
+// Initialize Realm (just once per application)
+        Realm.init(getApplicationContext());
 
+// Get a Realm instance for this thread
+        realm= Realm.getDefaultInstance();
         map = findViewById(R.id.mapview);
         map.setTilesScaledToDpi(true);
         map.setBuiltInZoomControls(true);
@@ -355,7 +344,11 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
                         .getMaxAddressLineIndex(); i++) {
                     strReturnedAddress.append(
                             returnedAddress.getAddressLine(i)).append("\n");
+                    address.setAddress(returnedAddress.getAddressLine(0));realm.beginTransaction();
+                    realm.copyToRealmOrUpdate(address);
+                    realm.commitTransaction();
                 }
+
                 marker.setSubDescription(returnedAddress.getAddressLine(0));
 
             } else {
