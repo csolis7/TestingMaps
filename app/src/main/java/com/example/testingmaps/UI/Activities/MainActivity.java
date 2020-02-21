@@ -22,12 +22,14 @@ import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 
+import com.example.testingmaps.App;
 import com.example.testingmaps.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.osmdroid.api.IMapController;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.events.MapEventsReceiver;
+import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.NetworkLocationIgnorer;
 import org.osmdroid.views.MapView;
@@ -52,6 +54,7 @@ import java.util.List;
 import java.util.Locale;
 
 import io.realm.Realm;
+import io.realm.RealmConfiguration;
 import io.realm.RealmResults;
 
 public class MainActivity extends Activity implements LocationListener, MapEventsReceiver {
@@ -61,6 +64,8 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
     private CompassOverlay coy;
     protected DirectedLocationOverlay myLocationOverlay;
     protected GeoPoint startPoint, destinationPoint;
+    GeoPoint center = new GeoPoint(13.710189,-89.20);
+
     protected ArrayList<GeoPoint> viaPoints;
     protected boolean mTrackingMode;
     boolean mIsRecordingTrack;
@@ -70,6 +75,7 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
     com.example.testingmaps.Storage.Address address = new com.example.testingmaps.Storage.Address();
 
     float mAzimuthAngleSpeed = 0.0f;
+
 
     private RotationGestureOverlay rgo;
     private ScaleBarOverlay mboy;
@@ -89,14 +95,24 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         Realm.init(getApplicationContext());
 
 // Get a Realm instance for this thread
+        RealmConfiguration realmConfiguration = new RealmConfiguration.Builder()
+                .name("maps.realm")
+                .deleteRealmIfMigrationNeeded()
+                .schemaVersion(1)
+                // .encryptionKey(key)
+                .build();
+        Realm.setDefaultConfiguration(realmConfiguration);
         realm= Realm.getDefaultInstance();
         map = findViewById(R.id.mapview);
         map.setTilesScaledToDpi(true);
         map.setBuiltInZoomControls(true);
         map.setMultiTouchControls(true);
+        map.setVerticalMapRepetitionEnabled(false);
+        map.setHorizontalMapRepetitionEnabled(false);
+        map.setScrollableAreaLimitDouble(new BoundingBox(85, 180, -85, -180));
+        map.setMinZoomLevel(2.0);
         IMapController mapController = map.getController();
-        mapController.setZoom(15);
-        GeoPoint center = new GeoPoint(13.710189,-89.20);
+        mapController.setZoom(14);
         mapController.animateTo(center);
         addMarker(center);
 
@@ -121,49 +137,11 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         mboy.setScaleBarOffset(dm.widthPixels / 2, 10);
         map.getOverlays().add(this.mboy);
 
-        ArrayList<OverlayItem> items = new ArrayList<>();
-        items.add(new OverlayItem("","Creativa Consultores", new GeoPoint(13.71d,-89.25d))); // Lat/Lon decimal degrees
-        items.add(new OverlayItem("","Multiplaza", new GeoPoint(13.67d,-89.24d))); // Lat/Lon decimal degrees
-
-//the overlay
-        ItemizedIconOverlay<OverlayItem> mOverlay = new ItemizedIconOverlay<>(items,
-                new ItemizedIconOverlay.OnItemGestureListener<OverlayItem>() {
-                    @Override
-                    public boolean onItemSingleTapUp(final int index, final OverlayItem item) {
-                        Toast.makeText(context, "Item", Toast.LENGTH_SHORT).show();
-                        return true;
-                    }
-                    @Override
-                    public boolean onItemLongPress(final int index, final OverlayItem item) {
-                        return false;
-                    }
-                }, context);
-
-        map.getOverlays().add(mOverlay);
-        //Puntos de prueba para polyline
-        final GeoPoint g1 = new GeoPoint(13.71d,-89.25d);
-        GeoPoint g2 = new GeoPoint(13.67d,-89.24d);
         //Puntos de prueba para poligono
         GeoPoint g3 = new GeoPoint(13.70d,-89.71d);
         GeoPoint g4 = new GeoPoint(13.70d,-89.73d);
         GeoPoint g5 = new GeoPoint(13.72d,-89.72d);
         GeoPoint g6 = new GeoPoint(13.72d,-89.70d);
-
-        //Polyline para Rutas
-        List<GeoPoint> geoPoints = new ArrayList<>();
-        geoPoints.add(g1);
-        geoPoints.add(g2);
-//add your points here
-        Polyline line = new Polyline();   //see note below!
-        line.setPoints(geoPoints);
-        line.setOnClickListener(new Polyline.OnClickListener() {
-            @Override
-            public boolean onClick(Polyline polyline, MapView mapView, GeoPoint eventPos) {
-                Toast.makeText(mapView.getContext(), "polyline with " + polyline.getPoints().size() + "pts was tapped", Toast.LENGTH_LONG).show();
-                return false;
-            }
-        });
-        map.getOverlayManager().add(line);
 
        //Poligonos Para Zonas de Riesgo
         List<GeoPoint> geoPointsp = new ArrayList<>();
@@ -180,7 +158,7 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
 
 //polygons supports holes too, points should be in a counter-clockwise order
         List<List<GeoPoint>> holes = new ArrayList<>();
-        holes.add(geoPoints);
+        holes.add(geoPointsp);
         polygon.setHoles(holes);
 
         map.getOverlayManager().add(polygon);
@@ -327,8 +305,7 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
 
     }
 
-    @Override
-    public boolean singleTapConfirmedHelper(GeoPoint p) {
+    public void AddNumberMarker(GeoPoint p){
         Marker marker = new Marker(map);
         int cc =0;
         Geocoder geocoder = new Geocoder(getBaseContext(), Locale.getDefault());
@@ -344,15 +321,13 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
                         .getMaxAddressLineIndex(); i++) {
                     strReturnedAddress.append(
                             returnedAddress.getAddressLine(i)).append("\n");
-                    address.setAddress(returnedAddress.getAddressLine(0));realm.beginTransaction();
-                    realm.copyToRealmOrUpdate(address);
-                    realm.commitTransaction();
-                }
 
-                marker.setSubDescription(returnedAddress.getAddressLine(0));
+                }
+                address.setAddress(returnedAddress.getAddressLine(0));
+
 
             } else {
-                Toast.makeText(this, "Vacio", Toast.LENGTH_SHORT).show();
+                address.setAddress("vacio");
 
             }
         } catch (IOException e) {
@@ -361,13 +336,12 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
 
         }
 
+
+        marker.setSubDescription(address.getAddress());
         marker.setPosition(p);
-       // marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         marker.setInfoWindow(new BasicInfoWindow(R.layout.item_detail, map));
 
         marker.setTitle("Mi ubicación es: ");
-        //marker.setSubDescription("Estoy aca: "+ center);
-        //map.getOverlays().clear();
         map.getOverlays().add(marker);
         MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(this, this);
         map.getOverlays().add(0, mapEventsOverlay);
@@ -375,14 +349,39 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         String c = Integer.toString(cc);
         marker.setIcon(writeOnDrawable(R.drawable.marker_visit_in_process,c));
         map.invalidate();
+    }
+    @Override
+    public boolean singleTapConfirmedHelper(GeoPoint p) {
+        //Polyline para Rutas
+            List<GeoPoint> geoPoints = new ArrayList<>();
+            geoPoints.add(center);
+            geoPoints.add(p);
+//add your points here
+            Polyline line = new Polyline();   //see note below!
+            line.setPoints(geoPoints);
+            line.setOnClickListener(new Polyline.OnClickListener() {
+                @Override
+                public boolean onClick(Polyline polyline, MapView mapView, GeoPoint eventPos) {
+                    Toast.makeText(mapView.getContext(), "polyline " + Math.round((polyline.getDistance() * 0.001f) * 100) / 100f + "km", Toast.LENGTH_LONG).show();
+                    return false;
+                }
+            });
+            map.getOverlayManager().add(line);
+
+
+            realm.beginTransaction();
+            AddNumberMarker(p);
+            realm.copyToRealmOrUpdate(address);
+            realm.commitTransaction();
         return true;
+
     }
 
 
 
     @Override public boolean longPressHelper(GeoPoint p) {
         //DO NOTHING FOR NOW:
-
+        Toast.makeText(this, "Distancia de usario al punto:"+getDistanceInKms(center,p)+"Km", Toast.LENGTH_SHORT).show();
         return false;
     }
 
@@ -406,7 +405,16 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         //Configuration.getInstance().save(this, prefs);
         map.onPause();  //needed for compass, my location overlays, v6.0.0 and up
     }
+    public float getDistanceInKms(GeoPoint p1, GeoPoint p2) {
+        double lat1 = ((double)p1.getLatitudeE6()) / 1e6;
+        double lng1 = ((double)p1.getLongitudeE6()) / 1e6;
+        double lat2 = ((double)p2.getLatitudeE6()) / 1e6;
+        double lng2 = ((double)p2.getLongitudeE6()) / 1e6;
+        float [] dist = new float[1];
+        Location.distanceBetween(lat1, lng1, lat2, lng2, dist);
 
+        return Math.round((dist[0]*0.001f)*100)/100f;
+    }
     public BitmapDrawable writeOnDrawable(int drawableId, String text){
 
         Bitmap bm = BitmapFactory.decodeResource(getResources(), drawableId).copy(Bitmap.Config.ARGB_8888, true);
