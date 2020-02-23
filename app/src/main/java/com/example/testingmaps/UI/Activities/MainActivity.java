@@ -95,13 +95,6 @@ public class MainActivity extends Activity implements LocationListener, MapEvent
         Realm.init(getApplicationContext());
 
 // Get a Realm instance for this thread
-        RealmConfiguration realmConfiguration = new RealmConfiguration.Builder()
-                .name("maps.realm")
-                .deleteRealmIfMigrationNeeded()
-                .schemaVersion(1)
-                // .encryptionKey(key)
-                .build();
-        Realm.setDefaultConfiguration(realmConfiguration);
         realm= Realm.getDefaultInstance();
         map = findViewById(R.id.mapview);
         map.setTilesScaledToDpi(true);
